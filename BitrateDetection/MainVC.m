@@ -8,7 +8,12 @@
 
 #import "MainVC.h"
 
-@interface MainVC ()
+@interface MainVC () {
+    IBOutlet UILabel *_lblStatus;
+    IBOutlet UIButton *_btnRefresh;
+    
+    float _duration;
+}
 
 @property (nonatomic, strong) NSURLConnection *connection; // we'll use presence or existence of this connection to determine if download is done
 @property (nonatomic) NSUInteger length;                   // the numbers of bytes downloaded from the server thus far
@@ -19,7 +24,7 @@
 @end
 
 static CGFloat const kMinimumMegabytesPerSecond = 20;
-static CGFloat const kMaximumElapsedTime = 2.0;
+static CGFloat const kMaximumElapsedTime = 100.0;
 
 @implementation MainVC
 
@@ -63,6 +68,10 @@ static CGFloat const kMaximumElapsedTime = 2.0;
         self.connection = nil;
         [self useOffline];
     }
+    _btnRefresh.enabled = YES;
+//    _btnRefresh.titleLabel.text = @"Refresh";
+    [_btnRefresh setTitle:@"Refresh" forState:UIControlStateNormal];
+    
 }
 
 - (void)connectionDidFinishLoading:(NSURLConnection *)connection
@@ -73,6 +82,9 @@ static CGFloat const kMaximumElapsedTime = 2.0;
         [self useOnline];
     else
         [self useOffline];
+    _btnRefresh.enabled = YES;
+    [_btnRefresh setTitle:@"Refresh" forState:UIControlStateNormal];
+    
 }
 
 - (void)connection:(NSURLConnection *)connection didReceiveData:(NSData *)data
@@ -87,13 +99,20 @@ static CGFloat const kMaximumElapsedTime = 2.0;
 
 - (void)testDownloadSpeed
 {
-    NSURL *url = [NSURL URLWithString:@"https://developers.google.com/android/images/index_landing_page.png"];
+    [[NSURLCache sharedURLCache] removeAllCachedResponses];
+    
+    NSURL *url = [NSURL URLWithString:@"http://cdn.business2community.com/wp-content/uploads/2013/08/zvkPNzK1.jpg"];
     NSURLRequest *request = [NSURLRequest requestWithURL:url];
     self.startTime = [NSDate date];
     self.length = 0;
     self.connection = [NSURLConnection connectionWithRequest:request delegate:self];
     
     double delayInSeconds = kMaximumElapsedTime;
+    
+//    _btnRefresh.titleLabel.text = @"Downloading...";
+    [_btnRefresh setTitle:@"Downloading..." forState:UIControlStateNormal];
+    _btnRefresh.enabled = NO;
+    
     dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delayInSeconds * NSEC_PER_SEC));
     dispatch_after(popTime, dispatch_get_main_queue(), ^(void){
         if (self.connection)
@@ -112,7 +131,9 @@ static CGFloat const kMaximumElapsedTime = 2.0;
     if (self.startTime)
     {
         elapsed = [[NSDate date] timeIntervalSinceDate:self.startTime];
-        return self.length / elapsed / 1024;
+        NSLog(@"seconds: %f", elapsed);
+        _duration = elapsed;
+        return self.length / elapsed / 1024 / 1024;    // Mbps
     }
     
     return -1;
@@ -121,15 +142,15 @@ static CGFloat const kMaximumElapsedTime = 2.0;
 - (void)useOnline
 {
     // use your MKMapView; I'm just updating a text field with the status
-    
-    NSLog(@"%@",[NSString stringWithFormat:@"successful @ %.1f mb/sec", [self determineMegabytesPerSecond]]);
+    _lblStatus.text = [NSString stringWithFormat:@"Speed:\t     %.4f Mbps\nDuration:\t  %f seconds", [self determineMegabytesPerSecond], _duration];
+    NSLog(@"%@",[NSString stringWithFormat:@"successful %.4f Mbps", [self determineMegabytesPerSecond]]);
 }
 
 - (void)useOffline
 {
     // use your offline maps; I'm just updating a text field with the status
-    
-    NSLog(@"%@",[NSString stringWithFormat:@"unsuccessful @ %.1f mb/sec", [self determineMegabytesPerSecond]]);
+    _lblStatus.text = [NSString stringWithFormat:@"Speed:\t     %.4f Mbps\nDuration:\t  %f seconds", [self determineMegabytesPerSecond], _duration];
+    NSLog(@"%@",[NSString stringWithFormat:@"unsuccessful %.4f Mbps", [self determineMegabytesPerSecond]]);
 }
 
 #pragma mark - Actions
